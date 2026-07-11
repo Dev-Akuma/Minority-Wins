@@ -156,7 +156,11 @@ export function GameBoard() {
               whileHover={isStakingOpen ? { scale: 1.05 } : {}}
               whileTap={isStakingOpen ? { scale: 0.95 } : {}}
               disabled={!isStakingOpen || stakeMutation.isPending}
-              onClick={() => stakeMutation.mutate({ number: num, amount: 100 })}
+              onClick={() => {
+                if (!stakeMutation.isPending && isStakingOpen) {
+                  stakeMutation.mutate({ number: num, amount: 100 });
+                }
+              }}
               className={`
                 aspect-square rounded-2xl flex flex-col items-center justify-center text-4xl font-black transition-colors relative overflow-hidden
                 ${isWinner ? 'bg-primary text-primary-foreground border-4 border-primary/50 shadow-[0_0_30px_rgba(59,130,246,0.5)]' : ''}

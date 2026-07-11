@@ -103,17 +103,40 @@ export class MatchesService implements OnModuleInit {
       throw new BadRequestException('Selected number must be between 0 and 9');
     }
 
-    // Deduct from Vault
-    await this.vaultService.transact(userId, -amount, 'STAKE', match.id);
+    // Atomic transaction for deducting vault and creating stake
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Verify user and balance
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) throw new BadRequestException('User not found');
+      if (user.balance < amount) throw new BadRequestException('Insufficient funds');
 
-    // Save Stake
-    await this.stakeRepo.addStake({
-      id: `stake-${Date.now()}-${Math.random()}`,
-      userId,
-      matchId: match.id,
-      selectedNumber,
-      stakeAmount: amount,
-      status: 'ACTIVE'
+      // 2. Deduct from Vault
+      await tx.user.update({
+        where: { id: userId },
+        data: { balance: { decrement: amount } }
+      });
+
+      // 3. Save Vault Transaction
+      await tx.vaultTransaction.create({
+        data: {
+          userId,
+          amount: -amount,
+          type: 'STAKE',
+          referenceId: match.id,
+        }
+      });
+
+      // 4. Save Stake
+      await tx.stake.create({
+        data: {
+          id: `stake-${Date.now()}-${Math.random()}`,
+          userId,
+          matchId: match.id,
+          selectedNumber,
+          stakeAmount: amount,
+          status: 'ACTIVE'
+        }
+      });
     });
   }
 }
