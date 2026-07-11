@@ -1,0 +1,156 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoomStatus {
+  WAITING
+  RUNNING
+  PAUSED
+  ARCHIVED
+}
+
+enum MatchStatus {
+  WAITING_FOR_PLAYERS
+  STARTING
+  STAKING_OPEN
+  LOCKED
+  CALCULATING
+  RESULT
+  RESETTING
+}
+
+enum TransactionType {
+  INITIAL_GRANT
+  STAKE
+  WIN
+  REFUND
+}
+
+enum StakeStatus {
+  ACTIVE
+  REFUNDED
+  SETTLED
+}
+
+model User {
+  id        String    @id @default(uuid())
+  googleId  String    @unique
+  email     String    @unique
+  username  String    @unique
+  balance   Float     @default(10000)
+  
+  // Stats
+  gamesPlayed Int       @default(0)
+  gamesWon    Int       @default(0)
+  coinsWon    Float     @default(0)
+  coinsLost   Float     @default(0)
+  lastSeen    DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  stakes       Stake[]
+  transactions VaultTransaction[]
+  numberStats  UserNumberStats[]
+}
+
+model UserNumberStats {
+  id          String   @id @default(uuid())
+  userId      String
+  number      Int      // 0-9
+  timesPlayed Int      @default(0)
+  wins        Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, number])
+}
+
+model Room {
+  id                    String     @id @default(uuid())
+  name                  String     @unique
+  status                RoomStatus @default(WAITING)
+  
+  // Room Configuration
+  minimumPlayers        Int        @default(2)
+  platformFeePercentage Float      @default(0.05) // 5% default
+  matchDurationSeconds  Int        @default(30)
+  resultDurationSeconds Int        @default(10)
+  startingCoins         Float      @default(10000)
+
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  matches Match[]
+}
+
+model Match {
+  id                    String      @id @default(uuid())
+  matchNumber           Int         @default(autoincrement())
+  roomId                String
+  status                MatchStatus @default(WAITING_FOR_PLAYERS)
+  
+  // Result Fields
+  winningNumbers        Int[]
+  totalPool             Float       @default(0)
+  platformFeePercentage Float       @default(0)
+  platformFeeAmount     Float       @default(0)
+  distributedPool       Float       @default(0)
+
+  startedAt             DateTime?
+  finishedAt            DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  room      Room            @relation(fields: [roomId], references: [id])
+  stakes    Stake[]
+  snapshots MatchSnapshot[]
+}
+
+model Stake {
+  id             String      @id @default(uuid())
+  userId         String
+  matchId        String
+  selectedNumber Int
+  stakeAmount    Float
+  status         StakeStatus @default(ACTIVE)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id])
+  match Match @relation(fields: [matchId], references: [id])
+
+  @@unique([userId, matchId]) // A user can only stake once per match
+}
+
+model MatchSnapshot {
+  id          String   @id @default(uuid())
+  matchId     String
+  number      Int      // 0-9
+  playerCount Int
+  totalStake  Float
+  isWinner    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id])
+
+  @@unique([matchId, number])
+}
+
+model VaultTransaction {
+  id          String          @id @default(uuid())
+  userId      String
+  amount      Float
+  type        TransactionType
+  referenceId String?         // Could be a MatchId or StakeId
+  createdAt   DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
