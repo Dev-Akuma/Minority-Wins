@@ -33,6 +33,22 @@ export class MatchesService implements OnModuleInit {
       startingCoins: 10000
     };
 
+    // Ensure Room exists
+    const room = await this.prisma.room.findUnique({ where: { id: roomConfig.id } });
+    if (!room) {
+      await this.prisma.room.create({
+        data: {
+          id: roomConfig.id,
+          name: 'Alpha Room',
+          minimumPlayers: roomConfig.minimumPlayers,
+          platformFeePercentage: roomConfig.platformFeePercentage,
+          matchDurationSeconds: roomConfig.matchDurationSeconds,
+          resultDurationSeconds: roomConfig.resultDurationSeconds,
+          startingCoins: roomConfig.startingCoins
+        }
+      });
+    }
+
     const events = {
       onMatchStarted: (match: MatchState) => this.gateway.emitMatchStarted(match),
       onMatchStatusChanged: (match: MatchState) => this.gateway.emitMatchStatusChanged(match),
