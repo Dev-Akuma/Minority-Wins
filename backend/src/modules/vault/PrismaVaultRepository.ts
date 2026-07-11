@@ -14,6 +14,9 @@ export class PrismaVaultRepository {
       user = await this.prisma.user.create({
         data: {
           id: userId,
+          googleId: userId,
+          email: `${userId}@example.com`,
+          username: `User_${userId.substring(0, 8)}`,
           balance: 10000,
         }
       });
