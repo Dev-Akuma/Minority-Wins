@@ -16,19 +16,25 @@ export class AuthService implements OnModuleInit {
 
   onModuleInit() {
     if (!admin.apps.length) {
-      // Look for the JSON file in config folder
-      const serviceAccountPath = path.resolve(__dirname, '../../../config/firebase-service-account.json');
+      // Possible paths for the service account JSON
+      // 1. Render Secret File path (/etc/secrets/...)
+      // 2. Local dev path (backend/src/config/...)
+      const renderSecretPath = '/etc/secrets/firebase-service-account.json';
+      const localPath = path.resolve(__dirname, '../../../config/firebase-service-account.json');
       
       let credential;
-      if (fs.existsSync(serviceAccountPath)) {
-        credential = admin.credential.cert(require(serviceAccountPath));
+      if (fs.existsSync(renderSecretPath)) {
+        console.log('Using Firebase Service Account from Render Secrets.');
+        credential = admin.credential.cert(require(renderSecretPath));
+      } else if (fs.existsSync(localPath)) {
+        console.log('Using Firebase Service Account from local config.');
+        credential = admin.credential.cert(require(localPath));
       } else {
-        // Fallback for production if they inject via env instead (or just log a warning)
-        console.warn('Firebase Service Account JSON not found at:', serviceAccountPath);
+        console.warn('Firebase Service Account JSON not found! Looked in:', renderSecretPath, 'and', localPath);
       }
 
       admin.initializeApp({
-        credential,
+        credential, // if undefined, firebase-admin uses GOOGLE_APPLICATION_CREDENTIALS automatically
       });
     }
   }

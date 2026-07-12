@@ -24,4 +24,6 @@ dist-ssr
 *.sw?
 
 # Secrets
-firebase-service-account.json
+*.firebase-service-account.json
+E:\Dev-Akuma\Projects\Minority Wins\backend\src\config\firebase-service-account.json
+backend\src\config\firebase-service-account.json
