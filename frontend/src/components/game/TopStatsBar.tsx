@@ -21,7 +21,7 @@ export function TopStatsBar({ totalPrizePool, totalBettors }: TopStatsBarProps) 
             animate={{ scale: 1, color: '#f8fafc' }}  // foreground color
             className="text-3xl font-bold font-mono"
           >
-            {totalPrizePool.toLocaleString()}
+            {(totalPrizePool || 0).toLocaleString()}
           </motion.div>
         </div>
       </div>
@@ -38,7 +38,7 @@ export function TopStatsBar({ totalPrizePool, totalBettors }: TopStatsBarProps) 
             animate={{ scale: 1 }}
             className="text-3xl font-bold font-mono text-foreground"
           >
-            {totalBettors.toLocaleString()}
+            {(totalBettors || 0).toLocaleString()}
           </motion.div>
         </div>
       </div>

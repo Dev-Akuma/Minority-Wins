@@ -135,9 +135,9 @@ export class MatchesService implements OnModuleInit {
       _max: { stakeAmount: true }
     });
     return {
-      totalPrizePool: agg._sum.stakeAmount || 0,
-      lowestStake: agg._min.stakeAmount || 0,
-      highestStake: agg._max.stakeAmount || 0,
+      totalPrizePool: agg._sum.stakeAmount ?? 0,
+      lowestStake: agg._min.stakeAmount ?? 0,
+      highestStake: agg._max.stakeAmount ?? 0,
     };
   }
 

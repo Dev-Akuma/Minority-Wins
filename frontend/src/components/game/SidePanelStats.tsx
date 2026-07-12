@@ -33,7 +33,7 @@ export function SidePanelStats({ lowestBet, highestBet, totalPrizePool, totalBet
             animate={{ opacity: 1 }}
             className="text-xl font-bold font-mono"
           >
-            {lowestDisplay.toLocaleString()}
+            {(lowestDisplay || 0).toLocaleString()}
           </motion.p>
         </div>
       </div>
@@ -50,7 +50,7 @@ export function SidePanelStats({ lowestBet, highestBet, totalPrizePool, totalBet
             animate={{ opacity: 1 }}
             className="text-xl font-bold font-mono"
           >
-            {highestBet.toLocaleString()}
+            {(highestBet || 0).toLocaleString()}
           </motion.p>
         </div>
       </div>
@@ -67,7 +67,7 @@ export function SidePanelStats({ lowestBet, highestBet, totalPrizePool, totalBet
             animate={{ opacity: 1 }}
             className="text-xl font-bold font-mono"
           >
-            {averageBet.toLocaleString()}
+            {(averageBet || 0).toLocaleString()}
           </motion.p>
         </div>
       </div>
