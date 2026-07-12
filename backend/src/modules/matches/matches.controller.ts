@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, ValidationPipe } from '@nestjs/common';
 import { MatchesService } from './matches.service';
+import { PlaceStakeDto } from './dto/place-stake.dto';
 
 @Controller('matches')
 export class MatchesController {
@@ -7,16 +8,22 @@ export class MatchesController {
 
   @Get('current')
   async getCurrentMatch() {
-    return this.matchesService.getCurrentMatch();
+    const match = await this.matchesService.getCurrentMatch();
+    if (!match) return null;
+
+    // Fetch aggregates for Phase 2: Game UI Mechanics
+    const aggregates = await this.matchesService.getMatchAggregates(match.id);
+    return {
+      ...match,
+      totalPrizePool: aggregates.totalPrizePool,
+      lowestStake: aggregates.lowestStake,
+      highestStake: aggregates.highestStake,
+    };
   }
 
   @Post('stake')
-  async placeStake(
-    @Body('userId') userId: string,
-    @Body('selectedNumber') selectedNumber: number,
-    @Body('amount') amount: number
-  ) {
-    await this.matchesService.placeStake(userId, selectedNumber, amount);
+  async placeStake(@Body(new ValidationPipe({ transform: true })) dto: PlaceStakeDto) {
+    await this.matchesService.placeStake(dto.userId, dto.selectedNumber, dto.amount);
     return { success: true };
   }
 }

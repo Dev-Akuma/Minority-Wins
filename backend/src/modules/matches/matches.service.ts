@@ -23,6 +23,9 @@ export class MatchesService implements OnModuleInit {
     this.stakeRepo = new PrismaStakeRepository(this.prisma);
   }
 
+  // In-memory cache for live stakes broadcast
+  private liveStakesMap = new Map<number, number>();
+
   async onModuleInit() {
     const roomConfig: RoomConfig = {
       id: 'room-alpha',
@@ -50,7 +53,10 @@ export class MatchesService implements OnModuleInit {
     }
 
     const events = {
-      onMatchStarted: (match: MatchState) => this.gateway.emitMatchStarted(match),
+      onMatchStarted: (match: MatchState) => {
+        this.liveStakesMap.clear();
+        this.gateway.emitMatchStarted(match);
+      },
       onMatchStatusChanged: (match: MatchState) => this.gateway.emitMatchStatusChanged(match),
       onMatchFinished: (match: MatchState) => this.gateway.emitMatchFinished(match),
       onPrizeDistributed: async (matchId: string, winners: { userId: string, amount: number }[]) => {
@@ -80,6 +86,7 @@ export class MatchesService implements OnModuleInit {
         this.currentMatchId = m.id;
         m.status = MatchStatus.STARTING;
         m.startedAt = new Date();
+        this.liveStakesMap.clear();
         await this.matchRepo.updateMatch(m);
       }
 
@@ -87,10 +94,33 @@ export class MatchesService implements OnModuleInit {
         await this.engine.tick(m.id);
       }
     }, 1000);
+
+    // Phase 2: Live Stake Broadcasting Loop (Throttled to 500ms)
+    setInterval(() => {
+      if (this.liveStakesMap.size > 0) {
+        const stakesObj = Object.fromEntries(this.liveStakesMap);
+        this.gateway.emitLiveStakeDistribution(this.currentMatchId, stakesObj);
+      }
+    }, 500);
   }
 
   public async getCurrentMatch() {
     return this.matchRepo.getMatch(this.currentMatchId);
+  }
+
+  // Phase 2: Get aggregates for the current match
+  public async getMatchAggregates(matchId: string) {
+    const agg = await this.prisma.stake.aggregate({
+      where: { matchId },
+      _sum: { stakeAmount: true },
+      _min: { stakeAmount: true },
+      _max: { stakeAmount: true }
+    });
+    return {
+      totalPrizePool: agg._sum.stakeAmount || 0,
+      lowestStake: agg._min.stakeAmount || 0,
+      highestStake: agg._max.stakeAmount || 0,
+    };
   }
 
   public async placeStake(userId: string, selectedNumber: number, amount: number) {
@@ -138,5 +168,9 @@ export class MatchesService implements OnModuleInit {
         }
       });
     });
+
+    // Phase 2: Update in-memory map for real-time broadcast
+    const currentStake = this.liveStakesMap.get(selectedNumber) || 0;
+    this.liveStakesMap.set(selectedNumber, currentStake + amount);
   }
 }

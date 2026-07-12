@@ -36,4 +36,9 @@ export class MatchGateway implements OnGatewayConnection, OnGatewayDisconnect {
   public emitPrizeDistributed(matchId: string, winners: { userId: string, amount: number }[]) {
     this.server.emit('prizeDistributed', { matchId, winners });
   }
+
+  // Phase 2: Live Stake Distribution Broadcast
+  public emitLiveStakeDistribution(matchId: string, distribution: Record<string, number>) {
+    this.server.emit('liveStakeDistribution', { matchId, distribution });
+  }
 }
