@@ -11,6 +11,7 @@ async function runSimulation() {
         id: 'room-alpha',
         minimumPlayers: 2,
         platformFeePercentage: 0.05,
+        waitingDurationSeconds: 2,
         matchDurationSeconds: 2,
         resultDurationSeconds: 2,
         startingCoins: 10000
@@ -40,13 +41,13 @@ async function runSimulation() {
     await stakeRepo.addStake({ id: 's2', matchId: currentMatch.id, userId: 'user2', selectedNumber: 7, stakeAmount: 200, status: 'ACTIVE' });
     await vaultRepo.transact('user3', -50, 'STAKE', currentMatch.id);
     await stakeRepo.addStake({ id: 's3', matchId: currentMatch.id, userId: 'user3', selectedNumber: 3, stakeAmount: 50, status: 'ACTIVE' });
-    currentMatch = StateMachine_1.StateMachine.transition(currentMatch, types_1.MatchStatus.STARTING);
+    currentMatch = StateMachine_1.StateMachine.transition(currentMatch, types_1.MatchStatus.BETTING);
     await matchRepo.updateMatch(currentMatch);
     const interval = setInterval(async () => {
         const m = await matchRepo.getMatch(currentMatch.id);
         if (!m)
             return;
-        if (m.status === types_1.MatchStatus.RESETTING) {
+        if (m.status === types_1.MatchStatus.WAITING && m.finishedAt) {
             console.log('--- Simulation Complete ---');
             clearInterval(interval);
             return;

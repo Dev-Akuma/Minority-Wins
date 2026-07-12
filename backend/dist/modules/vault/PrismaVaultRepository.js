@@ -25,6 +25,7 @@ let PrismaVaultRepository = class PrismaVaultRepository {
                     id: userId,
                     googleId: userId,
                     email: `${userId}@example.com`,
+                    phoneNumber: `+910000${userId.substring(0, 6)}`,
                     username: `User_${userId.substring(0, 8)}`,
                     balance: 10000,
                 }

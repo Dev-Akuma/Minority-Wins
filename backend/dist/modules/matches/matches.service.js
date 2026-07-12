@@ -33,11 +33,21 @@ let MatchesService = class MatchesService {
         this.matchRepo = new PrismaMatchRepository_1.PrismaMatchRepository(this.prisma);
         this.stakeRepo = new PrismaStakeRepository_1.PrismaStakeRepository(this.prisma);
     }
+    liveMatchStats = {
+        matchId: '',
+        totalPrizePool: 0,
+        totalBettors: 0,
+        numberStats: {},
+        lowestBet: Infinity,
+        highestBet: 0,
+    };
+    uniqueBettors = new Set();
     async onModuleInit() {
         const roomConfig = {
             id: 'room-alpha',
             minimumPlayers: 2,
             platformFeePercentage: 0.05,
+            waitingDurationSeconds: 10,
             matchDurationSeconds: 30,
             resultDurationSeconds: 10,
             startingCoins: 10000
@@ -57,7 +67,10 @@ let MatchesService = class MatchesService {
             });
         }
         const events = {
-            onMatchStarted: (match) => this.gateway.emitMatchStarted(match),
+            onMatchStarted: (match) => {
+                this.resetLiveStats(match.id);
+                this.gateway.emitMatchStarted(match);
+            },
             onMatchStatusChanged: (match) => this.gateway.emitMatchStatusChanged(match),
             onMatchFinished: (match) => this.gateway.emitMatchFinished(match),
             onPrizeDistributed: async (matchId, winners) => {
@@ -72,15 +85,7 @@ let MatchesService = class MatchesService {
         this.currentMatchId = match.id;
         setInterval(async () => {
             let m = await this.matchRepo.getMatch(this.currentMatchId);
-            if (m?.status === types_1.MatchStatus.WAITING_FOR_PLAYERS) {
-                m.status = types_1.MatchStatus.STARTING;
-                m.startedAt = new Date();
-                await this.matchRepo.updateMatch(m);
-            }
-            else if (m?.status === types_1.MatchStatus.RESETTING) {
-                m = await this.engine.initializeMatch();
-                this.currentMatchId = m.id;
-                m.status = types_1.MatchStatus.STARTING;
+            if (m?.status === types_1.MatchStatus.WAITING && !m.startedAt) {
                 m.startedAt = new Date();
                 await this.matchRepo.updateMatch(m);
             }
@@ -88,27 +93,108 @@ let MatchesService = class MatchesService {
                 await this.engine.tick(m.id);
             }
         }, 1000);
+        setInterval(async () => {
+            if (this.currentMatchId) {
+                const m = await this.matchRepo.getMatch(this.currentMatchId);
+                if (m) {
+                    let timeRemaining = 0;
+                    const now = new Date().getTime();
+                    const startedAt = m.startedAt ? m.startedAt.getTime() : now;
+                    const finishedAt = m.finishedAt ? m.finishedAt.getTime() : now;
+                    if (m.status === types_1.MatchStatus.WAITING) {
+                        timeRemaining = Math.max(0, roomConfig.waitingDurationSeconds - Math.floor((now - startedAt) / 1000));
+                    }
+                    else if (m.status === types_1.MatchStatus.BETTING) {
+                        timeRemaining = Math.max(0, roomConfig.matchDurationSeconds - Math.floor((now - startedAt) / 1000));
+                    }
+                    else if (m.status === types_1.MatchStatus.RESULT) {
+                        timeRemaining = Math.max(0, roomConfig.resultDurationSeconds - Math.floor((now - finishedAt) / 1000));
+                    }
+                    this.gateway.emitLiveMatchStats(this.currentMatchId, {
+                        ...this.liveMatchStats,
+                        status: m.status,
+                        timeRemaining
+                    });
+                }
+            }
+        }, 500);
+    }
+    resetLiveStats(matchId) {
+        this.liveMatchStats = {
+            matchId,
+            totalPrizePool: 0,
+            totalBettors: 0,
+            numberStats: {},
+            lowestBet: Infinity,
+            highestBet: 0,
+        };
+        this.uniqueBettors.clear();
     }
     async getCurrentMatch() {
         return this.matchRepo.getMatch(this.currentMatchId);
     }
+    async getMatchAggregates(matchId) {
+        const agg = await this.prisma.stake.aggregate({
+            where: { matchId },
+            _sum: { stakeAmount: true },
+            _min: { stakeAmount: true },
+            _max: { stakeAmount: true }
+        });
+        return {
+            totalPrizePool: agg._sum.stakeAmount ?? 0,
+            lowestStake: agg._min.stakeAmount ?? 0,
+            highestStake: agg._max.stakeAmount ?? 0,
+        };
+    }
     async placeStake(userId, selectedNumber, amount) {
         const match = await this.getCurrentMatch();
-        if (!match || match.status !== types_1.MatchStatus.STAKING_OPEN) {
+        if (!match || match.status !== types_1.MatchStatus.BETTING) {
             throw new common_1.BadRequestException('Match is not open for staking');
         }
         if (selectedNumber < 0 || selectedNumber > 9) {
             throw new common_1.BadRequestException('Selected number must be between 0 and 9');
         }
-        await this.vaultService.transact(userId, -amount, 'STAKE', match.id);
-        await this.stakeRepo.addStake({
-            id: `stake-${Date.now()}-${Math.random()}`,
-            userId,
-            matchId: match.id,
-            selectedNumber,
-            stakeAmount: amount,
-            status: 'ACTIVE'
+        await this.prisma.$transaction(async (tx) => {
+            const user = await tx.user.findUnique({ where: { id: userId } });
+            if (!user)
+                throw new common_1.BadRequestException('User not found');
+            if (user.balance < amount)
+                throw new common_1.BadRequestException('Insufficient funds');
+            await tx.user.update({
+                where: { id: userId },
+                data: { balance: { decrement: amount } }
+            });
+            await tx.vaultTransaction.create({
+                data: {
+                    userId,
+                    amount: -amount,
+                    type: 'STAKE',
+                    referenceId: match.id,
+                }
+            });
+            await tx.stake.create({
+                data: {
+                    id: `stake-${Date.now()}-${Math.random()}`,
+                    userId,
+                    matchId: match.id,
+                    selectedNumber,
+                    stakeAmount: amount,
+                    status: 'ACTIVE'
+                }
+            });
         });
+        if (this.liveMatchStats.matchId !== match.id) {
+            this.resetLiveStats(match.id);
+        }
+        this.liveMatchStats.totalPrizePool += amount;
+        this.uniqueBettors.add(userId);
+        this.liveMatchStats.totalBettors = this.uniqueBettors.size;
+        const numStr = selectedNumber.toString();
+        this.liveMatchStats.numberStats[numStr] = (this.liveMatchStats.numberStats[numStr] || 0) + 1;
+        if (amount < this.liveMatchStats.lowestBet)
+            this.liveMatchStats.lowestBet = amount;
+        if (amount > this.liveMatchStats.highestBet)
+            this.liveMatchStats.highestBet = amount;
     }
 };
 exports.MatchesService = MatchesService;

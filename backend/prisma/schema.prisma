@@ -20,13 +20,10 @@ enum RoomStatus {
 }
 
 enum MatchStatus {
-  WAITING_FOR_PLAYERS
-  STARTING
-  STAKING_OPEN
+  WAITING
+  BETTING
   LOCKED
-  CALCULATING
   RESULT
-  RESETTING
 }
 
 enum TransactionType {
@@ -99,7 +96,7 @@ model Match {
   id                    String      @id @default(uuid())
   matchNumber           Int         @default(autoincrement())
   roomId                String
-  status                MatchStatus @default(WAITING_FOR_PLAYERS)
+  status                MatchStatus @default(WAITING)
   
   // Result Fields
   winningNumbers        Int[]

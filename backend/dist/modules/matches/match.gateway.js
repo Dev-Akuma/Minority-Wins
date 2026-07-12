@@ -32,6 +32,9 @@ let MatchGateway = class MatchGateway {
     emitPrizeDistributed(matchId, winners) {
         this.server.emit('prizeDistributed', { matchId, winners });
     }
+    emitLiveMatchStats(matchId, stats) {
+        this.server.emit('liveMatchStats', { matchId, stats });
+    }
 };
 exports.MatchGateway = MatchGateway;
 __decorate([

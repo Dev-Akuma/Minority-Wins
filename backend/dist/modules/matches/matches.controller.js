@@ -15,16 +15,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MatchesController = void 0;
 const common_1 = require("@nestjs/common");
 const matches_service_1 = require("./matches.service");
+const place_stake_dto_1 = require("./dto/place-stake.dto");
 let MatchesController = class MatchesController {
     matchesService;
     constructor(matchesService) {
         this.matchesService = matchesService;
     }
     async getCurrentMatch() {
-        return this.matchesService.getCurrentMatch();
+        const match = await this.matchesService.getCurrentMatch();
+        if (!match)
+            return null;
+        const aggregates = await this.matchesService.getMatchAggregates(match.id);
+        return {
+            ...match,
+            totalPrizePool: aggregates.totalPrizePool,
+            lowestStake: aggregates.lowestStake,
+            highestStake: aggregates.highestStake,
+        };
     }
-    async placeStake(userId, selectedNumber, amount) {
-        await this.matchesService.placeStake(userId, selectedNumber, amount);
+    async placeStake(dto) {
+        await this.matchesService.placeStake(dto.userId, dto.selectedNumber, dto.amount);
         return { success: true };
     }
 };
@@ -37,11 +47,9 @@ __decorate([
 ], MatchesController.prototype, "getCurrentMatch", null);
 __decorate([
     (0, common_1.Post)('stake'),
-    __param(0, (0, common_1.Body)('userId')),
-    __param(1, (0, common_1.Body)('selectedNumber')),
-    __param(2, (0, common_1.Body)('amount')),
+    __param(0, (0, common_1.Body)(new common_1.ValidationPipe({ transform: true }))),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Number, Number]),
+    __metadata("design:paramtypes", [place_stake_dto_1.PlaceStakeDto]),
     __metadata("design:returntype", Promise)
 ], MatchesController.prototype, "placeStake", null);
 exports.MatchesController = MatchesController = __decorate([

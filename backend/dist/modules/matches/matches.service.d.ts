@@ -14,7 +14,15 @@ export declare class MatchesService implements OnModuleInit {
     private engine;
     private currentMatchId;
     constructor(gateway: MatchGateway, vaultService: VaultService, prisma: PrismaService);
+    private liveMatchStats;
+    private uniqueBettors;
     onModuleInit(): Promise<void>;
+    private resetLiveStats;
     getCurrentMatch(): Promise<MatchState | null>;
+    getMatchAggregates(matchId: string): Promise<{
+        totalPrizePool: number;
+        lowestStake: number;
+        highestStake: number;
+    }>;
     placeStake(userId: string, selectedNumber: number, amount: number): Promise<void>;
 }

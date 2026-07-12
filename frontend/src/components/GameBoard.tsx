@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { socket } from '../lib/socket';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import { TopStatsBar } from './game/TopStatsBar';
 import { SidePanelStats } from './game/SidePanelStats';
 import { NumberGrid } from './game/NumberGrid';
-import { MatchStatusBanner, MatchStatus } from './game/MatchStatusBanner';
+import { MatchStatusBanner, type MatchStatus } from './game/MatchStatusBanner';
 import toast from 'react-hot-toast';
 
 interface MatchState {
@@ -34,7 +34,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 export function GameBoard({ token }: { token?: string }) {
   const queryClient = useQueryClient();
   const [match, setMatch] = useState<MatchState | null>(null);
-  const [lastWin, setLastWin] = useState<number | null>(null);
+
   const [isConnected, setIsConnected] = useState(true);
   
   const [liveStats, setLiveStats] = useState<LiveMatchStats>({
@@ -111,7 +111,6 @@ export function GameBoard({ token }: { token?: string }) {
     socket.on('prizeDistributed', (data: { matchId: string, winners: { userId: string, amount: number }[] }) => {
       const myWin = data.winners.find(w => w.userId === USER_ID);
       if (myWin) {
-        setLastWin(myWin.amount);
         queryClient.invalidateQueries({ queryKey: ['balance', USER_ID] });
         toast.success(`You won ₹${myWin.amount.toLocaleString()}!`, { icon: '🎉', duration: 5000 });
       }
@@ -133,12 +132,11 @@ export function GameBoard({ token }: { token?: string }) {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['balance', USER_ID] });
-      setLastWin(null);
       toast.success(`₹${variables.amount.toLocaleString()} placed on Number ${variables.number}`);
     },
-    onError: (error) => {
+    onError: () => {
       toast.error('Failed to place bet. Check your balance.');
     }
   });

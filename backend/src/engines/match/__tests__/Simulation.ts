@@ -11,6 +11,7 @@ async function runSimulation() {
     id: 'room-alpha',
     minimumPlayers: 2,
     platformFeePercentage: 0.05,
+    waitingDurationSeconds: 2,
     matchDurationSeconds: 2,
     resultDurationSeconds: 2,
     startingCoins: 10000
@@ -52,7 +53,7 @@ async function runSimulation() {
   // Lowest pool is 3. User3 should win!
 
   // Force start properly via StateMachine
-  currentMatch = StateMachine.transition(currentMatch, MatchStatus.STARTING);
+  currentMatch = StateMachine.transition(currentMatch, MatchStatus.BETTING);
   await matchRepo.updateMatch(currentMatch);
 
   // Simulate Scheduler loop
@@ -60,7 +61,8 @@ async function runSimulation() {
     const m = await matchRepo.getMatch(currentMatch.id);
     if (!m) return;
     
-    if (m.status === MatchStatus.RESETTING) {
+    // In our new state machine, it resets to WAITING at the end of RESULT
+    if (m.status === MatchStatus.WAITING && m.finishedAt) {
       console.log('--- Simulation Complete ---');
       clearInterval(interval);
       return;

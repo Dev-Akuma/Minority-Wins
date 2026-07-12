@@ -26,32 +26,32 @@ class MatchEngine {
             throw new Error(`Match ${currentMatchId} not found`);
         const now = new Date();
         switch (match.status) {
-            case types_1.MatchStatus.STARTING:
-                this.transitionAndSave(match, types_1.MatchStatus.STAKING_OPEN);
-                this.events.onMatchStarted(match);
+            case types_1.MatchStatus.WAITING:
+                if (match.startedAt && (now.getTime() - match.startedAt.getTime() >= this.config.waitingDurationSeconds * 1000)) {
+                    this.transitionAndSave(match, types_1.MatchStatus.BETTING);
+                    this.events.onMatchStarted(match);
+                }
                 break;
-            case types_1.MatchStatus.STAKING_OPEN:
+            case types_1.MatchStatus.BETTING:
                 if (match.startedAt && (now.getTime() - match.startedAt.getTime() >= this.config.matchDurationSeconds * 1000)) {
                     this.transitionAndSave(match, types_1.MatchStatus.LOCKED);
                 }
                 break;
             case types_1.MatchStatus.LOCKED:
-                this.transitionAndSave(match, types_1.MatchStatus.CALCULATING);
-                break;
-            case types_1.MatchStatus.CALCULATING:
-                await this.calculateResults(match);
-                this.transitionAndSave(match, types_1.MatchStatus.RESULT);
-                this.events.onMatchFinished(match);
+                if (match.startedAt && (now.getTime() - match.startedAt.getTime() >= 3000)) {
+                    await this.calculateResults(match);
+                    this.transitionAndSave(match, types_1.MatchStatus.RESULT);
+                    this.events.onMatchFinished(match);
+                }
+                else if (!match.startedAt) {
+                    match.startedAt = new Date();
+                    await this.matchRepo.updateMatch(match);
+                }
                 break;
             case types_1.MatchStatus.RESULT:
                 if (match.finishedAt && (now.getTime() - match.finishedAt.getTime() >= this.config.resultDurationSeconds * 1000)) {
-                    this.transitionAndSave(match, types_1.MatchStatus.RESETTING);
+                    this.transitionAndSave(match, types_1.MatchStatus.WAITING);
                 }
-                break;
-            case types_1.MatchStatus.RESETTING:
-                this.transitionAndSave(match, types_1.MatchStatus.WAITING_FOR_PLAYERS);
-                break;
-            case types_1.MatchStatus.WAITING_FOR_PLAYERS:
                 break;
         }
     }

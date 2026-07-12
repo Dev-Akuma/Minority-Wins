@@ -12,4 +12,5 @@ export declare class MatchGateway implements OnGatewayConnection, OnGatewayDisco
         userId: string;
         amount: number;
     }[]): void;
+    emitLiveMatchStats(matchId: string, stats: any): void;
 }

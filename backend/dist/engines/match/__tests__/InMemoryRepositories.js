@@ -11,7 +11,7 @@ class InMemoryMatchRepository {
             id,
             matchNumber: this.matchCounter++,
             roomId,
-            status: types_1.MatchStatus.WAITING_FOR_PLAYERS,
+            status: types_1.MatchStatus.WAITING,
             startedAt: null,
             finishedAt: null,
             winningNumbers: [],
@@ -32,7 +32,7 @@ class InMemoryMatchRepository {
         return match ? { ...match } : null;
     }
     async getCurrentMatchForRoom(roomId) {
-        const activeMatches = Array.from(this.matches.values()).filter(m => m.roomId === roomId && m.status !== types_1.MatchStatus.WAITING_FOR_PLAYERS);
+        const activeMatches = Array.from(this.matches.values()).filter(m => m.roomId === roomId && m.status !== types_1.MatchStatus.WAITING);
         if (activeMatches.length > 0)
             return activeMatches[activeMatches.length - 1];
         return null;
