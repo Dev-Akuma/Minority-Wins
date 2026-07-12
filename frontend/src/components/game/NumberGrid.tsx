@@ -8,10 +8,11 @@ interface NumberGridProps {
   isPending: boolean;
   isBlindPhase: boolean;
   numberStats: Record<string, number>;
+  finalNumberTotals?: Record<string, number>;
   onStake: (number: number, amount: number) => void;
 }
 
-export function NumberGrid({ status, isStakingOpen, isPending, isBlindPhase, numberStats, onStake }: NumberGridProps) {
+export function NumberGrid({ status, isStakingOpen, isPending, isBlindPhase, numberStats, finalNumberTotals, onStake }: NumberGridProps) {
   const numbers = Array.from({ length: 10 }, (_, i) => i);
   const [selectedNum, setSelectedNum] = useState<number | null>(null);
   const [amount, setAmount] = useState<number>(10);
@@ -37,6 +38,7 @@ export function NumberGrid({ status, isStakingOpen, isPending, isBlindPhase, num
     <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
       {numbers.map((num) => {
         const betCount = numberStats[num.toString()] || 0;
+        const finalAmount = finalNumberTotals?.[num.toString()] || 0;
         const isSelected = selectedNum === num;
 
         return (
@@ -59,12 +61,16 @@ export function NumberGrid({ status, isStakingOpen, isPending, isBlindPhase, num
             {/* Main Number or Input Form */}
             {!isSelected ? (
               <>
-                <motion.span layoutId={`num-${num}`} className={`text-4xl font-bold ${betCount > 0 && !isBlindPhase ? 'mb-2' : ''}`}>
+                <motion.span layoutId={`num-${num}`} className={`text-4xl font-bold ${(betCount > 0 && !isBlindPhase) || status === 'RESULT' ? 'mb-2' : ''}`}>
                   {num}
                 </motion.span>
 
                 {/* Phase 3 & 4: Bet Count Badge / Blind Phase */}
-                {!isLocked && (
+                {status === 'RESULT' ? (
+                  <div className="absolute top-2 right-2 bg-green-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                    ₹{finalAmount.toLocaleString()}
+                  </div>
+                ) : !isLocked && (
                   isBlindPhase ? (
                     <div className="absolute top-2 right-2 bg-secondary/80 text-muted-foreground p-1 rounded-full shadow-sm backdrop-blur-md">
                       <Lock className="w-3 h-3" />

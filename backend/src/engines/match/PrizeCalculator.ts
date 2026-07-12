@@ -11,7 +11,7 @@ export class PrizeCalculator {
    */
   public static calculate(match: MatchState, stakes: Stake[]): { match: MatchState, distributions: PrizeDistribution[] } {
     if (stakes.length === 0) {
-      match.winningNumbers = [];
+      match.winningNumbers = [-1]; // -1 indicates a draw
       match.totalPool = 0;
       match.platformFeeAmount = 0;
       match.distributedPool = 0;
@@ -31,16 +31,29 @@ export class PrizeCalculator {
     });
 
     // 2. Find the lowest stake pool(s). We only consider numbers that have stakes!
-    // Wait, the rules usually say: "The number with the lowest total stake wins."
-    // Does 0 stakes count as a win? Usually, players must be ON the number to win it.
-    // If a number has 0 stakes, nobody wins. So we only find the minimum among numbers > 0 stakes.
-    
     let minStake = Infinity;
     const stakedNumbers = Array.from(poolByNumber.entries()).filter(([_, amount]) => amount > 0);
     
     stakedNumbers.forEach(([_, amount]) => {
       if (amount < minStake) minStake = amount;
     });
+
+    // Check for a draw: if all staked numbers tied for the lowest amount.
+    const isDraw = stakedNumbers.every(([_, amount]) => amount === minStake);
+
+    if (isDraw) {
+      match.winningNumbers = [-1]; // -1 indicates a draw
+      match.totalPool = totalPool;
+      match.platformFeeAmount = 0; // 0% fee on draws
+      match.distributedPool = totalPool; // full refund
+      
+      const distributions: PrizeDistribution[] = stakes.map(stake => ({
+        userId: stake.userId,
+        amount: stake.stakeAmount // 100% refund
+      }));
+
+      return { match, distributions };
+    }
 
     const winningNumbers = stakedNumbers
       .filter(([_, amount]) => amount === minStake)

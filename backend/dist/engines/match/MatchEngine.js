@@ -49,9 +49,6 @@ class MatchEngine {
                 }
                 break;
             case types_1.MatchStatus.RESULT:
-                if (match.finishedAt && (now.getTime() - match.finishedAt.getTime() >= this.config.resultDurationSeconds * 1000)) {
-                    this.transitionAndSave(match, types_1.MatchStatus.WAITING);
-                }
                 break;
         }
     }

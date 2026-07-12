@@ -19,6 +19,13 @@ export declare class MatchesService implements OnModuleInit {
     onModuleInit(): Promise<void>;
     private resetLiveStats;
     getCurrentMatch(): Promise<MatchState | null>;
+    getMatchHistory(): Promise<{
+        id: string;
+        createdAt: Date;
+        matchNumber: number;
+        winningNumbers: number[];
+        totalPool: number;
+    }[]>;
     getMatchAggregates(matchId: string): Promise<{
         totalPrizePool: number;
         lowestStake: number;

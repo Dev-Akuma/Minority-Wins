@@ -38,6 +38,7 @@ let MatchesService = class MatchesService {
         totalPrizePool: 0,
         totalBettors: 0,
         numberStats: {},
+        finalNumberTotals: {},
         lowestBet: Infinity,
         highestBet: 0,
     };
@@ -89,6 +90,17 @@ let MatchesService = class MatchesService {
                 m.startedAt = new Date();
                 await this.matchRepo.updateMatch(m);
             }
+            if (m?.status === types_1.MatchStatus.RESULT && m.finishedAt) {
+                const now = new Date().getTime();
+                const finishedAt = m.finishedAt.getTime();
+                const timeRemaining = Math.max(0, roomConfig.resultDurationSeconds - Math.floor((now - finishedAt) / 1000));
+                if (timeRemaining === 0) {
+                    const newMatch = await this.engine.initializeMatch();
+                    this.currentMatchId = newMatch.id;
+                    this.resetLiveStats(newMatch.id);
+                    return;
+                }
+            }
             if (m) {
                 await this.engine.tick(m.id);
             }
@@ -125,6 +137,7 @@ let MatchesService = class MatchesService {
             totalPrizePool: 0,
             totalBettors: 0,
             numberStats: {},
+            finalNumberTotals: {},
             lowestBet: Infinity,
             highestBet: 0,
         };
@@ -132,6 +145,20 @@ let MatchesService = class MatchesService {
     }
     async getCurrentMatch() {
         return this.matchRepo.getMatch(this.currentMatchId);
+    }
+    async getMatchHistory() {
+        return this.prisma.match.findMany({
+            where: { status: 'RESULT' },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+            select: {
+                id: true,
+                matchNumber: true,
+                winningNumbers: true,
+                totalPool: true,
+                createdAt: true,
+            }
+        });
     }
     async getMatchAggregates(matchId) {
         const agg = await this.prisma.stake.aggregate({
@@ -191,6 +218,7 @@ let MatchesService = class MatchesService {
         this.liveMatchStats.totalBettors = this.uniqueBettors.size;
         const numStr = selectedNumber.toString();
         this.liveMatchStats.numberStats[numStr] = (this.liveMatchStats.numberStats[numStr] || 0) + 1;
+        this.liveMatchStats.finalNumberTotals[numStr] = (this.liveMatchStats.finalNumberTotals[numStr] || 0) + amount;
         if (amount < this.liveMatchStats.lowestBet)
             this.liveMatchStats.lowestBet = amount;
         if (amount > this.liveMatchStats.highestBet)

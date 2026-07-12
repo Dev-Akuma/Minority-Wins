@@ -23,6 +23,7 @@ interface LiveMatchStats {
   totalPrizePool: number;
   totalBettors: number;
   numberStats: Record<string, number>;
+  finalNumberTotals: Record<string, number>;
   lowestBet: number;
   highestBet: number;
   status: MatchStatus;
@@ -42,6 +43,7 @@ export function GameBoard({ token }: { token?: string }) {
     totalPrizePool: 0,
     totalBettors: 0,
     numberStats: {},
+    finalNumberTotals: {},
     lowestBet: Infinity,
     highestBet: 0,
     status: 'WAITING',
@@ -94,6 +96,7 @@ export function GameBoard({ token }: { token?: string }) {
         totalPrizePool: 0,
         totalBettors: 0,
         numberStats: {},
+        finalNumberTotals: {},
         lowestBet: Infinity,
         highestBet: 0,
       }));
@@ -183,6 +186,7 @@ export function GameBoard({ token }: { token?: string }) {
             isPending={stakeMutation.isPending}
             isBlindPhase={isBlindPhase}
             numberStats={liveStats.numberStats}
+            finalNumberTotals={liveStats.finalNumberTotals}
             onStake={(num, amount) => {
               if (!stakeMutation.isPending && isStakingOpen) {
                 stakeMutation.mutate({ number: num, amount });

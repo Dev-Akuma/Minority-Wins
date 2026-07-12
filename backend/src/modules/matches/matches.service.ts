@@ -28,6 +28,7 @@ export class MatchesService implements OnModuleInit {
     totalPrizePool: 0,
     totalBettors: 0,
     numberStats: {} as Record<string, number>, // mapping from number string to count
+    finalNumberTotals: {} as Record<string, number>, // mapping from number string to currency amount
     lowestBet: Infinity,
     highestBet: 0,
   };
@@ -89,6 +90,19 @@ export class MatchesService implements OnModuleInit {
         await this.matchRepo.updateMatch(m);
       }
 
+      // If the match is in RESULT and the time is up, generate a NEW match!
+      if (m?.status === MatchStatus.RESULT && m.finishedAt) {
+          const now = new Date().getTime();
+          const finishedAt = m.finishedAt.getTime();
+          const timeRemaining = Math.max(0, roomConfig.resultDurationSeconds - Math.floor((now - finishedAt) / 1000));
+          if (timeRemaining === 0) {
+              const newMatch = await this.engine.initializeMatch();
+              this.currentMatchId = newMatch.id;
+              this.resetLiveStats(newMatch.id);
+              return;
+          }
+      }
+
       if (m) {
         await this.engine.tick(m.id);
       }
@@ -128,6 +142,7 @@ export class MatchesService implements OnModuleInit {
       totalPrizePool: 0,
       totalBettors: 0,
       numberStats: {},
+      finalNumberTotals: {},
       lowestBet: Infinity,
       highestBet: 0,
     };
@@ -136,6 +151,21 @@ export class MatchesService implements OnModuleInit {
 
   public async getCurrentMatch() {
     return this.matchRepo.getMatch(this.currentMatchId);
+  }
+
+  public async getMatchHistory() {
+    return this.prisma.match.findMany({
+      where: { status: 'RESULT' },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        matchNumber: true,
+        winningNumbers: true,
+        totalPool: true,
+        createdAt: true,
+      }
+    });
   }
 
   // Phase 2: Get aggregates for the current match
@@ -210,6 +240,7 @@ export class MatchesService implements OnModuleInit {
     
     const numStr = selectedNumber.toString();
     this.liveMatchStats.numberStats[numStr] = (this.liveMatchStats.numberStats[numStr] || 0) + 1;
+    this.liveMatchStats.finalNumberTotals[numStr] = (this.liveMatchStats.finalNumberTotals[numStr] || 0) + amount;
     
     if (amount < this.liveMatchStats.lowestBet) this.liveMatchStats.lowestBet = amount;
     if (amount > this.liveMatchStats.highestBet) this.liveMatchStats.highestBet = amount;

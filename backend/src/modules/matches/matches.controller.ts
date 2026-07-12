@@ -21,6 +21,11 @@ export class MatchesController {
     };
   }
 
+  @Get('history')
+  async getMatchHistory() {
+    return this.matchesService.getMatchHistory();
+  }
+
   @Post('stake')
   async placeStake(@Body(new ValidationPipe({ transform: true })) dto: PlaceStakeDto) {
     await this.matchesService.placeStake(dto.userId, dto.selectedNumber, dto.amount);

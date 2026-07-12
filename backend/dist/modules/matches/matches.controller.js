@@ -33,6 +33,9 @@ let MatchesController = class MatchesController {
             highestStake: aggregates.highestStake,
         };
     }
+    async getMatchHistory() {
+        return this.matchesService.getMatchHistory();
+    }
     async placeStake(dto) {
         await this.matchesService.placeStake(dto.userId, dto.selectedNumber, dto.amount);
         return { success: true };
@@ -45,6 +48,12 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], MatchesController.prototype, "getCurrentMatch", null);
+__decorate([
+    (0, common_1.Get)('history'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], MatchesController.prototype, "getMatchHistory", null);
 __decorate([
     (0, common_1.Post)('stake'),
     __param(0, (0, common_1.Body)(new common_1.ValidationPipe({ transform: true }))),

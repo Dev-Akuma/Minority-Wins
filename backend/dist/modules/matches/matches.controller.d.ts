@@ -19,6 +19,13 @@ export declare class MatchesController {
         platformFeeAmount: number;
         distributedPool: number;
     } | null>;
+    getMatchHistory(): Promise<{
+        id: string;
+        createdAt: Date;
+        matchNumber: number;
+        winningNumbers: number[];
+        totalPool: number;
+    }[]>;
     placeStake(dto: PlaceStakeDto): Promise<{
         success: boolean;
     }>;

@@ -4,7 +4,7 @@ exports.PrizeCalculator = void 0;
 class PrizeCalculator {
     static calculate(match, stakes) {
         if (stakes.length === 0) {
-            match.winningNumbers = [];
+            match.winningNumbers = [-1];
             match.totalPool = 0;
             match.platformFeeAmount = 0;
             match.distributedPool = 0;
@@ -25,6 +25,18 @@ class PrizeCalculator {
             if (amount < minStake)
                 minStake = amount;
         });
+        const isDraw = stakedNumbers.every(([_, amount]) => amount === minStake);
+        if (isDraw) {
+            match.winningNumbers = [-1];
+            match.totalPool = totalPool;
+            match.platformFeeAmount = 0;
+            match.distributedPool = totalPool;
+            const distributions = stakes.map(stake => ({
+                userId: stake.userId,
+                amount: stake.stakeAmount
+            }));
+            return { match, distributions };
+        }
         const winningNumbers = stakedNumbers
             .filter(([_, amount]) => amount === minStake)
             .map(([num, _]) => num);

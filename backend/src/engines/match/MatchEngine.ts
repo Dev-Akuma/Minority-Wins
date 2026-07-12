@@ -55,9 +55,7 @@ export class MatchEngine {
         break;
 
       case MatchStatus.RESULT:
-        if (match.finishedAt && (now.getTime() - match.finishedAt.getTime() >= this.config.resultDurationSeconds * 1000)) {
-          this.transitionAndSave(match, MatchStatus.WAITING);
-        }
+        // Matches stay in RESULT phase. The MatchesService is responsible for generating a new Match.
         break;
     }
   }

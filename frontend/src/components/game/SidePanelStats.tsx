@@ -1,6 +1,7 @@
 import { TrendingDown, TrendingUp, Activity, Lock } from 'lucide-react';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { useEffect } from 'react';
+import { MatchHistoryLog } from './MatchHistoryLog';
 
 function AnimatedNumber({ value }: { value: number }) {
   const spring = useSpring(value, { mass: 0.8, stiffness: 75, damping: 15 });
@@ -78,6 +79,8 @@ export function SidePanelStats({ lowestBet, highestBet, totalPrizePool, totalBet
           </div>
         </div>
       </div>
+      
+      <MatchHistoryLog />
     </div>
   );
 }
