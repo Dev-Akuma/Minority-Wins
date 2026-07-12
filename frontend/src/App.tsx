@@ -5,6 +5,8 @@ import { Auth } from './components/Auth';
 import { LogOut } from 'lucide-react';
 import { auth as firebaseAuth } from './lib/firebase';
 
+import { Toaster } from 'react-hot-toast';
+
 const queryClient = new QueryClient();
 
 function App() {
@@ -27,9 +29,12 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <Toaster position="top-center" reverseOrder={false} />
       <div className="min-h-screen bg-background text-foreground">
         <header className="border-b border-secondary/50 p-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold tracking-tight text-primary">Minority Wins</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">MW</h1>
+          </div>
           {token && (
             <button 
               onClick={handleLogout}

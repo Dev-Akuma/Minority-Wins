@@ -38,6 +38,7 @@ export class MatchesService implements OnModuleInit {
       id: 'room-alpha',
       minimumPlayers: 2,
       platformFeePercentage: 0.05,
+      waitingDurationSeconds: 10,
       matchDurationSeconds: 30, // 30 sec match
       resultDurationSeconds: 10, // 10 sec result display
       startingCoins: 10000
@@ -82,18 +83,9 @@ export class MatchesService implements OnModuleInit {
     setInterval(async () => {
       let m = await this.matchRepo.getMatch(this.currentMatchId);
       
-      // Auto-start the match if it's waiting
-      if (m?.status === MatchStatus.WAITING_FOR_PLAYERS) {
-        m.status = MatchStatus.STARTING;
+      // Auto-start the match if it's new
+      if (m?.status === MatchStatus.WAITING && !m.startedAt) {
         m.startedAt = new Date();
-        await this.matchRepo.updateMatch(m);
-      } else if (m?.status === MatchStatus.RESETTING) {
-        // Create the next match automatically
-        m = await this.engine.initializeMatch();
-        this.currentMatchId = m.id;
-        m.status = MatchStatus.STARTING;
-        m.startedAt = new Date();
-        this.resetLiveStats(m.id);
         await this.matchRepo.updateMatch(m);
       }
 
@@ -103,9 +95,29 @@ export class MatchesService implements OnModuleInit {
     }, 1000);
 
     // Phase 2: Live Stats Broadcasting Loop (Throttled to 500ms)
-    setInterval(() => {
+    setInterval(async () => {
       if (this.currentMatchId) {
-        this.gateway.emitLiveMatchStats(this.currentMatchId, this.liveMatchStats);
+        const m = await this.matchRepo.getMatch(this.currentMatchId);
+        if (m) {
+          let timeRemaining = 0;
+          const now = new Date().getTime();
+          const startedAt = m.startedAt ? m.startedAt.getTime() : now;
+          const finishedAt = m.finishedAt ? m.finishedAt.getTime() : now;
+
+          if (m.status === MatchStatus.WAITING) {
+             timeRemaining = Math.max(0, roomConfig.waitingDurationSeconds - Math.floor((now - startedAt) / 1000));
+          } else if (m.status === MatchStatus.BETTING) {
+             timeRemaining = Math.max(0, roomConfig.matchDurationSeconds - Math.floor((now - startedAt) / 1000));
+          } else if (m.status === MatchStatus.RESULT) {
+             timeRemaining = Math.max(0, roomConfig.resultDurationSeconds - Math.floor((now - finishedAt) / 1000));
+          }
+
+          this.gateway.emitLiveMatchStats(this.currentMatchId, {
+            ...this.liveMatchStats,
+            status: m.status,
+            timeRemaining
+          });
+        }
       }
     }, 500);
   }
@@ -143,7 +155,7 @@ export class MatchesService implements OnModuleInit {
 
   public async placeStake(userId: string, selectedNumber: number, amount: number) {
     const match = await this.getCurrentMatch();
-    if (!match || match.status !== MatchStatus.STAKING_OPEN) {
+    if (!match || match.status !== MatchStatus.BETTING) {
       throw new BadRequestException('Match is not open for staking');
     }
 

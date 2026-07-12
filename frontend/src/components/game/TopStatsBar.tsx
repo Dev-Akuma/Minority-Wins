@@ -1,12 +1,25 @@
-import { Users, Coins } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Users, Coins, Lock } from 'lucide-react';
+import { motion, useSpring, useTransform } from 'framer-motion';
+import { useEffect } from 'react';
+
+function AnimatedNumber({ value }: { value: number }) {
+  const spring = useSpring(value, { mass: 0.8, stiffness: 75, damping: 15 });
+  const display = useTransform(spring, (current) => Math.round(current).toLocaleString());
+
+  useEffect(() => {
+    spring.set(value);
+  }, [spring, value]);
+
+  return <motion.span>{display}</motion.span>;
+}
 
 interface TopStatsBarProps {
   totalPrizePool: number;
   totalBettors: number;
+  isBlindPhase?: boolean;
 }
 
-export function TopStatsBar({ totalPrizePool, totalBettors }: TopStatsBarProps) {
+export function TopStatsBar({ totalPrizePool, totalBettors, isBlindPhase }: TopStatsBarProps) {
   return (
     <div className="flex gap-4 md:gap-8 justify-between items-center bg-secondary/10 p-6 rounded-3xl border border-secondary/30 backdrop-blur-md mb-8">
       <div className="flex items-center gap-4">
@@ -15,14 +28,12 @@ export function TopStatsBar({ totalPrizePool, totalBettors }: TopStatsBarProps) 
         </div>
         <div>
           <h3 className="text-muted-foreground text-sm uppercase tracking-widest font-semibold mb-1">Total Prize Pool</h3>
-          <motion.div 
-            key={totalPrizePool}
-            initial={{ scale: 1.1, color: '#f59e0b' }} // accent color
-            animate={{ scale: 1, color: '#f8fafc' }}  // foreground color
-            className="text-3xl font-bold font-mono"
-          >
-            {(totalPrizePool || 0).toLocaleString()}
-          </motion.div>
+          <div className="text-3xl font-bold font-mono relative">
+            <span className={isBlindPhase ? 'blur-md opacity-50 transition-all duration-500' : 'transition-all duration-500'}>
+              <AnimatedNumber value={totalPrizePool || 0} />
+            </span>
+            {isBlindPhase && <Lock className="absolute inset-0 m-auto text-muted-foreground w-6 h-6" />}
+          </div>
         </div>
       </div>
       
@@ -32,14 +43,12 @@ export function TopStatsBar({ totalPrizePool, totalBettors }: TopStatsBarProps) 
         </div>
         <div>
           <h3 className="text-muted-foreground text-sm uppercase tracking-widest font-semibold mb-1">Bettors</h3>
-          <motion.div 
-            key={totalBettors}
-            initial={{ scale: 1.1 }}
-            animate={{ scale: 1 }}
-            className="text-3xl font-bold font-mono text-foreground"
-          >
-            {(totalBettors || 0).toLocaleString()}
-          </motion.div>
+          <div className="text-3xl font-bold font-mono text-foreground relative">
+            <span className={isBlindPhase ? 'blur-md opacity-50 transition-all duration-500' : 'transition-all duration-500'}>
+              <AnimatedNumber value={totalBettors || 0} />
+            </span>
+            {isBlindPhase && <Lock className="absolute inset-0 m-auto text-muted-foreground w-6 h-6" />}
+          </div>
         </div>
       </div>
     </div>

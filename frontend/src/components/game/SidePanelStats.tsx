@@ -1,14 +1,27 @@
-import { TrendingDown, TrendingUp, Activity } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { TrendingDown, TrendingUp, Activity, Lock } from 'lucide-react';
+import { motion, useSpring, useTransform } from 'framer-motion';
+import { useEffect } from 'react';
+
+function AnimatedNumber({ value }: { value: number }) {
+  const spring = useSpring(value, { mass: 0.8, stiffness: 75, damping: 15 });
+  const display = useTransform(spring, (current) => Math.round(current).toLocaleString());
+
+  useEffect(() => {
+    spring.set(value);
+  }, [spring, value]);
+
+  return <motion.span>{display}</motion.span>;
+}
 
 interface SidePanelStatsProps {
   lowestBet: number;
   highestBet: number;
   totalPrizePool: number;
   totalBettors: number;
+  isBlindPhase?: boolean;
 }
 
-export function SidePanelStats({ lowestBet, highestBet, totalPrizePool, totalBettors }: SidePanelStatsProps) {
+export function SidePanelStats({ lowestBet, highestBet, totalPrizePool, totalBettors, isBlindPhase }: SidePanelStatsProps) {
   // Prevent division by zero
   const averageBet = totalBettors > 0 ? Math.round(totalPrizePool / totalBettors) : 0;
   
@@ -27,14 +40,12 @@ export function SidePanelStats({ lowestBet, highestBet, totalPrizePool, totalBet
         </div>
         <div>
           <p className="text-xs text-muted-foreground uppercase font-semibold">Lowest Stake</p>
-          <motion.p 
-            key={lowestDisplay}
-            initial={{ opacity: 0.5 }}
-            animate={{ opacity: 1 }}
-            className="text-xl font-bold font-mono"
-          >
-            {(lowestDisplay || 0).toLocaleString()}
-          </motion.p>
+          <div className="text-xl font-bold font-mono relative">
+            <span className={isBlindPhase ? 'blur-md opacity-50 transition-all duration-500' : 'transition-all duration-500'}>
+              <AnimatedNumber value={lowestDisplay || 0} />
+            </span>
+            {isBlindPhase && <Lock className="absolute inset-0 m-auto text-muted-foreground w-4 h-4" />}
+          </div>
         </div>
       </div>
 
@@ -44,14 +55,12 @@ export function SidePanelStats({ lowestBet, highestBet, totalPrizePool, totalBet
         </div>
         <div>
           <p className="text-xs text-muted-foreground uppercase font-semibold">Highest Stake</p>
-          <motion.p 
-            key={highestBet}
-            initial={{ opacity: 0.5 }}
-            animate={{ opacity: 1 }}
-            className="text-xl font-bold font-mono"
-          >
-            {(highestBet || 0).toLocaleString()}
-          </motion.p>
+          <div className="text-xl font-bold font-mono relative">
+            <span className={isBlindPhase ? 'blur-md opacity-50 transition-all duration-500' : 'transition-all duration-500'}>
+              <AnimatedNumber value={highestBet || 0} />
+            </span>
+            {isBlindPhase && <Lock className="absolute inset-0 m-auto text-muted-foreground w-4 h-4" />}
+          </div>
         </div>
       </div>
 
@@ -61,14 +70,12 @@ export function SidePanelStats({ lowestBet, highestBet, totalPrizePool, totalBet
         </div>
         <div>
           <p className="text-xs text-muted-foreground uppercase font-semibold">Average Stake</p>
-          <motion.p 
-            key={averageBet}
-            initial={{ opacity: 0.5 }}
-            animate={{ opacity: 1 }}
-            className="text-xl font-bold font-mono"
-          >
-            {(averageBet || 0).toLocaleString()}
-          </motion.p>
+          <div className="text-xl font-bold font-mono relative">
+            <span className={isBlindPhase ? 'blur-md opacity-50 transition-all duration-500' : 'transition-all duration-500'}>
+              <AnimatedNumber value={averageBet || 0} />
+            </span>
+            {isBlindPhase && <Lock className="absolute inset-0 m-auto text-muted-foreground w-4 h-4" />}
+          </div>
         </div>
       </div>
     </div>

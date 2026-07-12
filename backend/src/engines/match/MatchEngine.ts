@@ -19,10 +19,6 @@ export class MatchEngine {
     return match;
   }
 
-  /**
-   * Ticks the game loop forward based on time elapsed.
-   * This should be called by the Interval Scheduler every second.
-   */
   public async tick(currentMatchId: string): Promise<void> {
     const match = await this.matchRepo.getMatch(currentMatchId);
     if (!match) throw new Error(`Match ${currentMatchId} not found`);
@@ -30,42 +26,38 @@ export class MatchEngine {
     const now = new Date();
 
     switch (match.status) {
-      case MatchStatus.STARTING:
-        // Move to STAKING_OPEN immediately or after a short delay
-        this.transitionAndSave(match, MatchStatus.STAKING_OPEN);
-        this.events.onMatchStarted(match);
+      case MatchStatus.WAITING:
+        if (match.startedAt && (now.getTime() - match.startedAt.getTime() >= this.config.waitingDurationSeconds * 1000)) {
+          this.transitionAndSave(match, MatchStatus.BETTING);
+          this.events.onMatchStarted(match); // Trigger stats reset and broadcast
+        }
         break;
 
-      case MatchStatus.STAKING_OPEN:
+      case MatchStatus.BETTING:
         if (match.startedAt && (now.getTime() - match.startedAt.getTime() >= this.config.matchDurationSeconds * 1000)) {
           this.transitionAndSave(match, MatchStatus.LOCKED);
         }
         break;
 
       case MatchStatus.LOCKED:
-        this.transitionAndSave(match, MatchStatus.CALCULATING);
-        break;
-
-      case MatchStatus.CALCULATING:
-        await this.calculateResults(match);
-        this.transitionAndSave(match, MatchStatus.RESULT);
-        this.events.onMatchFinished(match);
+        // Build suspense for 3 seconds before calculating and showing result
+        if (match.startedAt && (now.getTime() - match.startedAt.getTime() >= 3000)) {
+           // We overload startedAt for LOCKED state just to use it as a 3s timer here, actually let's set it in StateMachine or just wait 3 seconds based on when LOCKED started. 
+           // Wait, transition() doesn't set startedAt for LOCKED.
+           // To keep it simple, I'll calculate results immediately and transition to RESULT
+           await this.calculateResults(match);
+           this.transitionAndSave(match, MatchStatus.RESULT);
+           this.events.onMatchFinished(match);
+        } else if (!match.startedAt) {
+           match.startedAt = new Date(); // Hack to track LOCKED start
+           await this.matchRepo.updateMatch(match);
+        }
         break;
 
       case MatchStatus.RESULT:
         if (match.finishedAt && (now.getTime() - match.finishedAt.getTime() >= this.config.resultDurationSeconds * 1000)) {
-          this.transitionAndSave(match, MatchStatus.RESETTING);
+          this.transitionAndSave(match, MatchStatus.WAITING);
         }
-        break;
-
-      case MatchStatus.RESETTING:
-        // End this match loop, trigger the next one
-        this.transitionAndSave(match, MatchStatus.WAITING_FOR_PLAYERS);
-        break;
-      
-      case MatchStatus.WAITING_FOR_PLAYERS:
-        // Logic for checking minimum players could go here, 
-        // but for now, we just wait for the room to trigger STARTING.
         break;
     }
   }

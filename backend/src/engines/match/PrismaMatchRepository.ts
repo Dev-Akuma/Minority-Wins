@@ -10,7 +10,7 @@ export class PrismaMatchRepository implements MatchRepository {
     const match = await this.prisma.match.create({
       data: {
         roomId,
-        status: MatchStatus.WAITING_FOR_PLAYERS,
+        status: MatchStatus.WAITING,
         totalPool: 0,
         platformFeePercentage: config.platformFeePercentage,
         platformFeeAmount: 0,
@@ -44,7 +44,7 @@ export class PrismaMatchRepository implements MatchRepository {
 
   public async getCurrentMatchForRoom(roomId: string): Promise<MatchState | null> {
     const match = await this.prisma.match.findFirst({
-      where: { roomId, status: { not: 'WAITING_FOR_PLAYERS' } },
+      where: { roomId, status: { not: 'WAITING' } },
       orderBy: { createdAt: 'desc' }
     });
     if (!match) return null;

@@ -4,13 +4,10 @@ export class StateMachine {
   
   // Valid transitions mapping
   private static readonly TRANSITIONS: Record<MatchStatus, MatchStatus[]> = {
-    [MatchStatus.WAITING_FOR_PLAYERS]: [MatchStatus.STARTING],
-    [MatchStatus.STARTING]: [MatchStatus.STAKING_OPEN, MatchStatus.WAITING_FOR_PLAYERS], // Can abort back to waiting
-    [MatchStatus.STAKING_OPEN]: [MatchStatus.LOCKED],
-    [MatchStatus.LOCKED]: [MatchStatus.CALCULATING],
-    [MatchStatus.CALCULATING]: [MatchStatus.RESULT],
-    [MatchStatus.RESULT]: [MatchStatus.RESETTING],
-    [MatchStatus.RESETTING]: [MatchStatus.WAITING_FOR_PLAYERS],
+    [MatchStatus.WAITING]: [MatchStatus.BETTING],
+    [MatchStatus.BETTING]: [MatchStatus.LOCKED],
+    [MatchStatus.LOCKED]: [MatchStatus.RESULT],
+    [MatchStatus.RESULT]: [MatchStatus.WAITING],
   };
 
   /**
@@ -27,7 +24,11 @@ export class StateMachine {
     match.status = nextStatus;
     
     // Handle specific side effects of state changes
-    if (nextStatus === MatchStatus.STARTING) {
+    if (nextStatus === MatchStatus.WAITING) {
+      match.startedAt = new Date();
+    }
+    
+    if (nextStatus === MatchStatus.BETTING) {
       match.startedAt = new Date();
     }
     

@@ -1,17 +1,15 @@
 export enum MatchStatus {
-  WAITING_FOR_PLAYERS = 'WAITING_FOR_PLAYERS',
-  STARTING = 'STARTING',
-  STAKING_OPEN = 'STAKING_OPEN',
+  WAITING = 'WAITING',
+  BETTING = 'BETTING',
   LOCKED = 'LOCKED',
-  CALCULATING = 'CALCULATING',
   RESULT = 'RESULT',
-  RESETTING = 'RESETTING',
 }
 
 export interface RoomConfig {
   id: string;
   minimumPlayers: number;
   platformFeePercentage: number; // e.g., 0.05 for 5%
+  waitingDurationSeconds: number;
   matchDurationSeconds: number;
   resultDurationSeconds: number;
   startingCoins: number;
