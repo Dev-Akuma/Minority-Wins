@@ -71,8 +71,9 @@ export function Auth({ onLoginSuccess }: { onLoginSuccess: (token: string, user:
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
+          'Authorization': `Bearer ${idToken}`, // Still keeping it in header for best practices
         },
+        body: JSON.stringify({ idToken, phoneNumber }), // Passing idToken in the body!
       });
 
       if (!res.ok) {
