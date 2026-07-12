@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, OnModuleInit } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import admin from 'firebase-admin';
+import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { PrismaService } from '../../prisma.service';
 import { VaultService } from '../vault/vault.service';
 import * as path from 'path';
@@ -15,7 +16,7 @@ export class AuthService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    if (!admin.apps.length) {
+    if (getApps().length === 0) {
       // Possible paths for the service account JSON
       // 1. Render Secret File path (/etc/secrets/...)
       // 2. Local dev path (backend/src/config/...)
@@ -25,15 +26,15 @@ export class AuthService implements OnModuleInit {
       let credential;
       if (fs.existsSync(renderSecretPath)) {
         console.log('Using Firebase Service Account from Render Secrets.');
-        credential = admin.credential.cert(require(renderSecretPath));
+        credential = cert(require(renderSecretPath));
       } else if (fs.existsSync(localPath)) {
         console.log('Using Firebase Service Account from local config.');
-        credential = admin.credential.cert(require(localPath));
+        credential = cert(require(localPath));
       } else {
         console.warn('Firebase Service Account JSON not found! Looked in:', renderSecretPath, 'and', localPath);
       }
 
-      admin.initializeApp({
+      initializeApp({
         credential, // if undefined, firebase-admin uses GOOGLE_APPLICATION_CREDENTIALS automatically
       });
     }
@@ -41,7 +42,7 @@ export class AuthService implements OnModuleInit {
 
   async verifyFirebaseToken(idToken: string) {
     try {
-      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      const decodedToken = await getAuth().verifyIdToken(idToken);
       const phoneNumber = decodedToken.phone_number;
 
       if (!phoneNumber) {
