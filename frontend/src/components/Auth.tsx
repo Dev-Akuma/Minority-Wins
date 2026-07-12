@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { setupRecaptcha, auth as firebaseAuth } from '../lib/firebase';
-import { signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
 import { Phone, ShieldCheck, Loader2 } from 'lucide-react';
+
+declare global {
+  interface Window {
+    recaptchaVerifier: any;
+    confirmationResult: any;
+  }
+}
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 

@@ -9,23 +9,19 @@ const queryClient = new QueryClient();
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('jwt_token'));
-  const [user, setUser] = useState<any>(null); // Ideally typed
-
   useEffect(() => {
     // Optionally fetch user profile with token here to rehydrate user state
     // For now, if we have a token, we assume logged in.
   }, [token]);
 
-  const handleLoginSuccess = (newToken: string, userData: any) => {
+  const handleLoginSuccess = (newToken: string, _userData: any) => {
     localStorage.setItem('jwt_token', newToken);
     setToken(newToken);
-    setUser(userData);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('jwt_token');
     setToken(null);
-    setUser(null);
     firebaseAuth.signOut();
   };
 
