@@ -23,8 +23,15 @@ export class MatchesService implements OnModuleInit {
     this.stakeRepo = new PrismaStakeRepository(this.prisma);
   }
 
-  // In-memory cache for live stakes broadcast
-  private liveStakesMap = new Map<number, number>();
+  private liveMatchStats = {
+    matchId: '',
+    totalPrizePool: 0,
+    totalBettors: 0,
+    numberStats: {} as Record<string, number>, // mapping from number string to count
+    lowestBet: Infinity,
+    highestBet: 0,
+  };
+  private uniqueBettors = new Set<string>();
 
   async onModuleInit() {
     const roomConfig: RoomConfig = {
@@ -54,7 +61,7 @@ export class MatchesService implements OnModuleInit {
 
     const events = {
       onMatchStarted: (match: MatchState) => {
-        this.liveStakesMap.clear();
+        this.resetLiveStats(match.id);
         this.gateway.emitMatchStarted(match);
       },
       onMatchStatusChanged: (match: MatchState) => this.gateway.emitMatchStatusChanged(match),
@@ -86,7 +93,7 @@ export class MatchesService implements OnModuleInit {
         this.currentMatchId = m.id;
         m.status = MatchStatus.STARTING;
         m.startedAt = new Date();
-        this.liveStakesMap.clear();
+        this.resetLiveStats(m.id);
         await this.matchRepo.updateMatch(m);
       }
 
@@ -95,13 +102,24 @@ export class MatchesService implements OnModuleInit {
       }
     }, 1000);
 
-    // Phase 2: Live Stake Broadcasting Loop (Throttled to 500ms)
+    // Phase 2: Live Stats Broadcasting Loop (Throttled to 500ms)
     setInterval(() => {
-      if (this.liveStakesMap.size > 0) {
-        const stakesObj = Object.fromEntries(this.liveStakesMap);
-        this.gateway.emitLiveStakeDistribution(this.currentMatchId, stakesObj);
+      if (this.currentMatchId) {
+        this.gateway.emitLiveMatchStats(this.currentMatchId, this.liveMatchStats);
       }
     }, 500);
+  }
+
+  private resetLiveStats(matchId: string) {
+    this.liveMatchStats = {
+      matchId,
+      totalPrizePool: 0,
+      totalBettors: 0,
+      numberStats: {},
+      lowestBet: Infinity,
+      highestBet: 0,
+    };
+    this.uniqueBettors.clear();
   }
 
   public async getCurrentMatch() {
@@ -169,8 +187,19 @@ export class MatchesService implements OnModuleInit {
       });
     });
 
-    // Phase 2: Update in-memory map for real-time broadcast
-    const currentStake = this.liveStakesMap.get(selectedNumber) || 0;
-    this.liveStakesMap.set(selectedNumber, currentStake + amount);
+    // Phase 2: Update in-memory stats for real-time broadcast
+    if (this.liveMatchStats.matchId !== match.id) {
+      this.resetLiveStats(match.id);
+    }
+    
+    this.liveMatchStats.totalPrizePool += amount;
+    this.uniqueBettors.add(userId);
+    this.liveMatchStats.totalBettors = this.uniqueBettors.size;
+    
+    const numStr = selectedNumber.toString();
+    this.liveMatchStats.numberStats[numStr] = (this.liveMatchStats.numberStats[numStr] || 0) + 1;
+    
+    if (amount < this.liveMatchStats.lowestBet) this.liveMatchStats.lowestBet = amount;
+    if (amount > this.liveMatchStats.highestBet) this.liveMatchStats.highestBet = amount;
   }
 }

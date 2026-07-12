@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { socket } from '../lib/socket';
 import { motion, AnimatePresence } from 'framer-motion';
+import { TopStatsBar } from './game/TopStatsBar';
+import { SidePanelStats } from './game/SidePanelStats';
+import { NumberGrid } from './game/NumberGrid';
 
-// Types mimicking the backend
 type MatchStatus = 'WAITING_FOR_PLAYERS' | 'STARTING' | 'STAKING_OPEN' | 'LOCKED' | 'CALCULATING' | 'RESULT' | 'RESETTING';
 
 interface MatchState {
@@ -14,23 +16,46 @@ interface MatchState {
   winningNumbers: number[];
   totalPool: number;
   distributedPool: number;
-  // Phase 2: Game UI Metrics
-  totalPrizePool?: number;
-  lowestStake?: number;
-  highestStake?: number;
+}
+
+// The new aggregated stats object broadcasted from backend
+interface LiveMatchStats {
+  matchId: string;
+  totalPrizePool: number;
+  totalBettors: number;
+  numberStats: Record<string, number>;
+  lowestBet: number;
+  highestBet: number;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-const USER_ID = 'usr_test_123'; // Soon to be dynamic via Auth
 
-export function GameBoard() {
+export function GameBoard({ token }: { token?: string }) {
   const queryClient = useQueryClient();
   const [match, setMatch] = useState<MatchState | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [lastWin, setLastWin] = useState<number | null>(null);
   
-  // Phase 2: Live Stake State
-  const [liveStakes, setLiveStakes] = useState<Record<string, number>>({});
+  // Phase 2: Live Match Stats
+  const [liveStats, setLiveStats] = useState<LiveMatchStats>({
+    matchId: '',
+    totalPrizePool: 0,
+    totalBettors: 0,
+    numberStats: {},
+    lowestBet: Infinity,
+    highestBet: 0,
+  });
+
+  // Extract User ID from JWT if present
+  let USER_ID = 'usr_test_123';
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      USER_ID = payload.sub;
+    } catch (e) {
+      console.error('Invalid token');
+    }
+  }
 
   // Fetch Balance
   const { data: balance = 0 } = useQuery({
@@ -58,15 +83,22 @@ export function GameBoard() {
 
     socket.on('matchStarted', (data: MatchState) => {
       setMatch(data);
-      setLiveStakes({}); // Reset on new match
+      setLiveStats({
+        matchId: data.id,
+        totalPrizePool: 0,
+        totalBettors: 0,
+        numberStats: {},
+        lowestBet: Infinity,
+        highestBet: 0,
+      });
     });
     socket.on('matchStatusChanged', (data: MatchState) => setMatch(data));
     socket.on('matchFinished', (data: MatchState) => setMatch(data));
     
-    // Phase 2: Listen for live stake distribution
-    socket.on('liveStakeDistribution', (data: { matchId: string, distribution: Record<string, number> }) => {
+    // Phase 2: Listen for live stats
+    socket.on('liveMatchStats', (data: { matchId: string, stats: LiveMatchStats }) => {
       if (match && data.matchId === match.id) {
-        setLiveStakes(data.distribution);
+        setLiveStats(data.stats);
       }
     });
     
@@ -81,7 +113,7 @@ export function GameBoard() {
     return () => {
       socket.disconnect();
     };
-  }, [queryClient, match]);
+  }, [queryClient, match, USER_ID]);
 
   // Timer loop for STAKING_OPEN phase
   useEffect(() => {
@@ -119,13 +151,12 @@ export function GameBoard() {
   const isStakingOpen = match?.status === 'STAKING_OPEN';
 
   return (
-    <div className="flex flex-col gap-8 max-w-4xl mx-auto">
+    <div className="flex flex-col gap-6 w-full">
       
-      {/* Header Panel */}
-      <div className="bg-secondary/20 p-6 rounded-2xl border border-secondary/50 flex justify-between items-center backdrop-blur-sm">
+      {/* Small Header for Wallet and Status */}
+      <div className="flex justify-between items-center mb-2">
         <div>
-          <h2 className="text-muted-foreground text-sm uppercase tracking-widest font-semibold mb-1">Status</h2>
-          <div className="text-2xl font-bold text-primary flex items-center gap-3">
+          <div className="text-xl font-bold text-primary flex items-center gap-3">
             {match?.status || 'LOADING...'}
             {isStakingOpen && (
               <span className="bg-destructive/10 text-destructive text-sm px-3 py-1 rounded-full flex items-center gap-2">
@@ -136,28 +167,17 @@ export function GameBoard() {
           </div>
         </div>
 
-        {/* Phase 2: FOMO Metrics */}
-        {match?.totalPrizePool !== undefined && match.totalPrizePool > 0 && (
-          <div className="hidden md:block text-center border-x border-secondary/50 px-8">
-            <h2 className="text-muted-foreground text-xs uppercase tracking-widest font-semibold mb-1">Global Pool</h2>
-            <div className="text-xl font-bold text-accent">
-              {match.totalPrizePool.toLocaleString()} <span className="text-sm font-normal opacity-50">coins</span>
-            </div>
-            <div className="flex gap-4 text-xs text-muted-foreground mt-1">
-              <span>Min: {match.lowestStake}</span>
-              <span>Max: {match.highestStake}</span>
-            </div>
-          </div>
-        )}
-
-        <div className="text-right">
-          <h2 className="text-muted-foreground text-sm uppercase tracking-widest font-semibold mb-1">Wallet</h2>
-          <div className="text-3xl font-bold tabular-nums flex items-center justify-end gap-2">
-            <span className="text-accent">●</span>
-            {balance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 1 })}
+        <div className="text-right bg-secondary/20 px-4 py-2 rounded-xl border border-secondary/50">
+          <div className="text-sm font-bold tabular-nums flex items-center gap-2 text-foreground">
+            <span className="text-accent">●</span> Wallet: {balance.toLocaleString()}
           </div>
         </div>
       </div>
+
+      <TopStatsBar 
+        totalPrizePool={liveStats.totalPrizePool} 
+        totalBettors={liveStats.totalBettors} 
+      />
 
       {/* Win Notification */}
       <AnimatePresence>
@@ -166,56 +186,38 @@ export function GameBoard() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="bg-accent/20 border border-accent/50 text-accent p-4 rounded-xl text-center font-bold text-lg"
+            className="bg-accent/20 border border-accent/50 text-accent p-4 rounded-xl text-center font-bold text-lg mb-4"
           >
             🎉 You won +{lastWin.toLocaleString()} coins! 🎉
           </motion.div>
         )}
       </AnimatePresence>
       
-      {/* Game Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
-          const isWinner = match?.status === 'RESULT' && match?.winningNumbers.includes(num);
-          const isPending = stakeMutation.isPending && stakeMutation.variables?.number === num;
-
-          return (
-            <motion.button
-              key={num}
-              whileHover={isStakingOpen ? { scale: 1.05 } : {}}
-              whileTap={isStakingOpen ? { scale: 0.95 } : {}}
-              disabled={!isStakingOpen || stakeMutation.isPending}
-              onClick={() => {
-                if (!stakeMutation.isPending && isStakingOpen) {
-                  stakeMutation.mutate({ number: num, amount: 100 });
-                }
-              }}
-              className={`
-                aspect-square rounded-2xl flex flex-col items-center justify-center text-4xl font-black transition-colors relative overflow-hidden
-                ${isWinner ? 'bg-primary text-primary-foreground border-4 border-primary/50 shadow-[0_0_30px_rgba(59,130,246,0.5)]' : ''}
-                ${!isWinner && isStakingOpen ? 'bg-secondary/40 hover:bg-secondary/80 border border-secondary text-foreground cursor-pointer' : ''}
-                ${!isWinner && !isStakingOpen ? 'bg-secondary/20 border border-secondary/30 text-muted-foreground cursor-not-allowed' : ''}
-              `}
-            >
-              {num}
-              {isStakingOpen && (
-                <div className="absolute bottom-4 text-xs font-medium text-muted-foreground flex flex-col items-center">
-                  <span>STAKE 100</span>
-                  {liveStakes[num] > 0 && (
-                    <span className="text-[10px] text-accent mt-1 animate-pulse">🔥 {liveStakes[num].toLocaleString()} staked</span>
-                  )}
-                </div>
-              )}
-              {isPending && (
-                <div className="absolute inset-0 bg-background/50 flex items-center justify-center backdrop-blur-sm">
-                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                </div>
-              )}
-            </motion.button>
-          );
-        })}
+      {/* Main Game Area */}
+      <div className="flex flex-col md:flex-row gap-6">
+        <div className="flex-1">
+          <NumberGrid 
+            isStakingOpen={isStakingOpen}
+            isPending={stakeMutation.isPending}
+            numberStats={liveStats.numberStats}
+            liveStakesAmount={{}} // Keeping this empty since we moved to pure count UI, or could track amount per number easily too
+            onStake={(num) => {
+              if (!stakeMutation.isPending && isStakingOpen) {
+                stakeMutation.mutate({ number: num, amount: 100 });
+              }
+            }}
+          />
+        </div>
+        
+        <div className="w-full md:w-auto">
+          <SidePanelStats 
+            lowestBet={liveStats.lowestBet}
+            highestBet={liveStats.highestBet}
+            totalPrizePool={liveStats.totalPrizePool}
+            totalBettors={liveStats.totalBettors}
+          />
+        </div>
       </div>
-
     </div>
   );
 }
