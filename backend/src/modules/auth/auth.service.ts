@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException, OnModuleInit } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as admin from 'firebase-admin';
+import admin from 'firebase-admin';
 import { PrismaService } from '../../prisma.service';
 import { VaultService } from '../vault/vault.service';
 import * as path from 'path';

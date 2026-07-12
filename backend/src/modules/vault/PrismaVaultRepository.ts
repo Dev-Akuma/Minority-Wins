@@ -4,11 +4,11 @@ import { User, VaultTransaction } from '../../engines/match/types';
 
 @Injectable()
 export class PrismaVaultRepository {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   public async getUser(userId: string): Promise<User> {
     let user = await this.prisma.user.findUnique({ where: { id: userId } });
-    
+
     if (!user) {
       // Auto-create for demo purposes, granting 10000 coins
       user = await this.prisma.user.create({
@@ -16,6 +16,7 @@ export class PrismaVaultRepository {
           id: userId,
           googleId: userId,
           email: `${userId}@example.com`,
+          phoneNumber: `+910000${userId.substring(0, 6)}`,
           username: `User_${userId.substring(0, 8)}`,
           balance: 10000,
         }
@@ -28,7 +29,7 @@ export class PrismaVaultRepository {
         }
       });
     }
-    
+
     return {
       id: user.id,
       balance: user.balance,
@@ -40,7 +41,7 @@ export class PrismaVaultRepository {
     const updatedUser = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user) throw new Error('User not found');
-      
+
       if (user.balance + amount < 0) {
         throw new Error('Insufficient funds');
       }
